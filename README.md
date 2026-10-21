@@ -7,7 +7,7 @@ this weewx extension enables you to send your weather data to a [prometheus](htt
 this extension requires the use of the `requests` package.
 
 ```
-pip install requests
+python -m pip install -r requirements.txt
 ```
 
 ## installation
@@ -16,12 +16,12 @@ this extension can be easily installed using the weewx extensions installer.
 
 1. download the extension from github:
 	```
-	wget https://github.com/sulrich/weewx-prompush/archive/v1.0.0.tar.gz
+	wget https://github.com/weewx-packages/weewx-prompush/archive/refs/heads/master.tar.gz
 	```
 
 2. install using the weewx extension utility
 	```
-	wee_extension --install v1.0.0.tar.gz
+	weectl extension install master.tar.gz
 	```
 
 3. update **weewx.conf** to appropriately tag weather data for submission into the prometheus pushgateway and subsequent scraping from prometheus.  note that **job** and **instance** names may be subject to relabeling depending on your prometheus environment.
@@ -34,7 +34,7 @@ this extension can be easily installed using the weewx extensions installer.
          port = PUSH_GW_PORT
 	```
 	
-`wee_extension` will add a boilerplate `[[PromPush]]` section to your config.  You need to edit it.
+`weectl extension install` will add a boilerplate `[[PromPush]]` section to your config.  You need to edit it.
 	
 
 4. restart weewx
@@ -48,3 +48,10 @@ sudo /etc/init.d/weewx start
 **author:** steve ulrich \<[sulrich@botwerks.org](mailto:sulrich@botwerks.org)\>  
 **license:** Apache License, Version 2.0. See LICENSE.  
 **source:** [https://github.com/sulrich/weewx-prompush](https://github.com/sulrich/weewx-prompush)  
+
+This continuation uses Python 3 and a maintained Requests 2.x release. Configure
+job and instance as URL path components without slashes or spaces. Missing
+measurements are omitted; zero remains a measurement. Failed uploads are
+reported to the WeeWX REST worker, and HTTP requests use its timeout.
+
+Modified 2026-10-22 by weewx-packages.

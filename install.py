@@ -1,24 +1,25 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# Modified 2026-10-22 by weewx-packages: compatibility and tracker repairs.
 
 """
 setup for weewx prometheus pushgateway pusher
 """
 
 __title__ = 'PromPush'
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 __author__ = 'steve ulrich <sulrich@botwerks.org>'
 __license__ = 'Apache License, Version 2.0'
 
 
-import setup
+from weecfg.extension import ExtensionInstaller
 
 def loader():
     """install PromPush extension"""
     return WeewxPromPushInstaller()
 
 
-class WeewxPromPushInstaller(setup.ExtensionInstaller):
+class WeewxPromPushInstaller(ExtensionInstaller):
     """installs weewx PromPush extension"""
 
     def __init__(self):

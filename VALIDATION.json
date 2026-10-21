@@ -1,0 +1,31 @@
+{
+  "environments": [
+    {
+      "environment": "py314-weewx552",
+      "exit_code": 0,
+      "seconds": 0.75,
+      "summary": "4 passed in 0.57s"
+    },
+    {
+      "environment": "py310-weewx510",
+      "exit_code": 0,
+      "seconds": 0.82,
+      "summary": "4 passed in 0.68s"
+    },
+    {
+      "environment": "py310-weewx410",
+      "exit_code": 0,
+      "seconds": 0.81,
+      "summary": "4 passed in 0.66s"
+    }
+  ],
+  "mutations": [
+    {
+      "mutation": "missing-metric",
+      "test": "tests/test_prompush.py::test_post_to_pushgateway_and_preserve_missing",
+      "detected": true,
+      "exit_code": 1,
+      "observed_failure": "E           AssertionError: assert 'windDir' not in {'dateTime': 1700000000, 'outTemp': 0, 'windDir': 0.0}\nFAILED tests/test_prompush.py::test_post_to_pushgateway_and_preserve_missing"
+    }
+  ]
+}

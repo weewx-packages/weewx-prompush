@@ -1,2 +1,2 @@
-requests == 2.10.0
-setup == 1.0
+# Modified 2026-10-22 by weewx-packages: update runtime dependencies.
+requests>=2.32.5,<3

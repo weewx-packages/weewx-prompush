@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# Modified 2026-10-22 by weewx-packages: compatibility and tracker repairs.
 
 """
 sample output from simulator
@@ -65,7 +66,7 @@ weather_metrics = {
     'cloudbase':    'gauge'
 }
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 
 import weewx
 import weewx.restx
@@ -73,7 +74,7 @@ import weeutil.weeutil
 
 import requests
 
-import Queue
+import queue
 import sys
 import syslog
 
@@ -97,7 +98,7 @@ class PromPush(weewx.restx.StdRESTful):
         _manager_dict = weewx.manager.get_manager_dict(
             config_dict['DataBindings'], config_dict['Databases'], 'wx_binding')
 
-        self.loop_queue = Queue.Queue()
+        self.loop_queue = queue.Queue()
         self.loop_thread = PromPushThread(self.loop_queue, _manager_dict,
                                           **_prom_dict)
         self.loop_thread.start()
@@ -128,7 +129,7 @@ class PromPushThread(weewx.restx.RESTThread):
                  job=DEFAULT_JOB,
                  instance=DEFAULT_INSTANCE,
                  skip_post=False,
-                 max_backlog=sys.maxint,
+                 max_backlog=sys.maxsize,
                  stale=60,
                  log_success=True,
                  log_failure=True,
@@ -160,23 +161,20 @@ class PromPushThread(weewx.restx.RESTThread):
         # post the weather stats to the prometheus push gw
         pushgw_url = 'http://' + self.host + ":" + self.port + "/metrics/job/" + self.job
 
-        if self.instance is not "":
+        if self.instance:
             pushgw_url += "/instance/" + self.instance
 
         try:
             _res = requests.post(url=pushgw_url,
                                  data=data,
-                                 headers={'Content-Type': 'application/octet-stream'})
+                                 headers={'Content-Type': 'text/plain; version=0.0.4'},
+                                 timeout=self.timeout)
+            _res.raise_for_status()
             loginfo("pushgw post return code - %s" % _res.status_code)
-            if 200 <= _res.status_code <= 299:
-                # success
-                return
-            else:
-                # something went awry
-                logerr("pushgw post error: %s" % _res.text)
-                return
-        except requests.ConnectionError, e:
-            logerr("pushgw post error: %s" % e.message)
+        except requests.RequestException as e:
+            logerr("pushgw post error: %s" % e)
+            raise weewx.restx.FailedPost(str(e))
+
 
 
     def process_record(self, record, dbm):
@@ -186,10 +184,11 @@ class PromPushThread(weewx.restx.RESTThread):
 
         if self.skip_post:
             loginfo("-- prompush: skipping post")
+            return
         else:
-            for key, val in record.iteritems():
+            for key, val in record.items():
                 if val is None:
-                    val = 0.0
+                    continue
 
                 if weather_metrics.get(key):
                     # annotate the submission with the appropriate metric type.
