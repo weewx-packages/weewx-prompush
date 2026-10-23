@@ -1,4 +1,5 @@
 import http.server
+import logging
 import queue
 import threading
 
@@ -71,7 +72,6 @@ def test_failed_post_is_retried(monkeypatch):
 
 def start_service(monkeypatch, tmp_path, options):
     import configobj
-    logged = []
 
     class Engine:
         def bind(self, *args):
@@ -79,17 +79,16 @@ def start_service(monkeypatch, tmp_path, options):
 
     config = configobj.ConfigObj({'StdRESTful': {'PromPush': options}, 'DataBindings': {'wx_binding': {'database': 'archive_sqlite'}}, 'Databases': {'archive_sqlite': {'driver': 'weedb.sqlite', 'root': str(tmp_path), 'database_name': 'archive.sdb'}}})
     monkeypatch.setattr(prompush.PromPushThread, 'start', lambda self: None)
-    monkeypatch.setattr(prompush.syslog, 'syslog', lambda level, message: logged.append((level, message)))
-    return prompush.PromPush(Engine(), config), logged
+    return prompush.PromPush(Engine(), config)
 
 
-def test_missing_port_is_logged_and_skips_uploader(monkeypatch, tmp_path):
-    service, logged = start_service(monkeypatch, tmp_path, {'host': 'localhost'})
+def test_missing_port_is_logged_and_skips_uploader(monkeypatch, tmp_path, caplog):
+    service = start_service(monkeypatch, tmp_path, {'host': 'localhost'})
     assert not hasattr(service, 'loop_thread')
-    assert (prompush.syslog.LOG_ERR, 'prom-push: data will not be posted: missing option port') in logged
+    assert ('prompush', logging.ERROR, 'data will not be posted: missing option port') in caplog.record_tuples
 
 
-def test_unknown_options_are_logged_and_ignored(monkeypatch, tmp_path):
-    service, logged = start_service(monkeypatch, tmp_path, {'host': 'localhost', 'port': '9091', 'enable': 'true', 'post_interval': '60'})
+def test_unknown_options_are_logged_and_ignored(monkeypatch, tmp_path, caplog):
+    service = start_service(monkeypatch, tmp_path, {'host': 'localhost', 'port': '9091', 'enable': 'true', 'post_interval': '60'})
     assert service.loop_thread.host == 'localhost'
-    assert (prompush.syslog.LOG_WARNING, "prom-push: unknown option 'post_interval' ignored") in logged
+    assert ('prompush', logging.WARNING, "unknown option 'post_interval' ignored") in caplog.record_tuples

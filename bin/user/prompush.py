@@ -2,6 +2,8 @@
 # Modified 2026-10-22 by weewx-packages: compatibility and tracker repairs.
 # Modified 2026-10-23 by weewx-packages: retry failed posts, report missing
 # and unknown options instead of stopping WeeWX.
+# Modified 2026-10-23 by weewx-packages: log through the logging module
+# instead of syslog.
 
 """
 sample output from simulator
@@ -77,10 +79,12 @@ import weeutil.weeutil
 import requests
 
 import inspect
+import logging
 import queue
 import sys
-import syslog
 import time
+
+log = logging.getLogger(__name__)
 
 class PromPush(weewx.restx.StdRESTful):
     """
@@ -226,17 +230,14 @@ class PromPushThread(weewx.restx.RESTThread):
 
 #---------------------------------------------------------------------
 # misc. logging functions
-def logmsg(level, msg):
-    syslog.syslog(level, 'prom-push: %s' % msg)
-
 def logdbg(msg):
-    logmsg(syslog.LOG_DEBUG, msg)
+    log.debug(msg)
 
 def loginfo(msg):
-    logmsg(syslog.LOG_INFO, msg)
+    log.info(msg)
 
 def logwarn(msg):
-    logmsg(syslog.LOG_WARNING, msg)
+    log.warning(msg)
 
 def logerr(msg):
-    logmsg(syslog.LOG_ERR, msg)
+    log.error(msg)
