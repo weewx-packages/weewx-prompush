@@ -1,41 +1,39 @@
-# WeeWX observations for Prometheus Pushgateway
+# WeeWX Prometheus Pushgateway uploader
 
-Send LOOP observations to a Prometheus Pushgateway using the text exposition
-format. Prometheus must scrape that gateway separately to retain time series.
+Sends every LOOP packet to a Prometheus Pushgateway in the text exposition
+format. Prometheus must scrape the gateway to keep the time series. The
+extension has no archive replay and no built-in Prometheus endpoint.
 
-This is the weewx-packages continuation, release **1.1.0**.
-[Origin](ORIGIN.md) records the upstream revision; [repair notes](REPAIR_NOTES.md)
-describe the maintenance changes.
-
-The catalog archive targets WeeWX `>=5.5.2,<5.7` and Python `>=3.10,<3.15`.
+This is the weewx-packages continuation of
+[sulrich/weewx-prompush](https://github.com/sulrich/weewx-prompush). See
+[ORIGIN.md](ORIGIN.md) and [REPAIR_NOTES.md](REPAIR_NOTES.md).
 
 ## Requirements
 
-You need a reachable Pushgateway and Requests `>=2.32.5,<3` in the Python
-environment running WeeWX. Activate that WeeWX virtual environment before
-running these commands, so `python` and `weectl` use the same environment:
+- A reachable Prometheus Pushgateway.
+- The Python package Requests in the environment that runs WeeWX. The
+  installer does not install Python packages. Activate the WeeWX virtual
+  environment, then run:
 
-```sh
-python -m pip install 'requests>=2.32.5,<3'
-```
+  ```sh
+  python -m pip install 'requests>=2.32.5,<3'
+  ```
 
-For a system installation, use your distribution's Requests package in WeeWX's
-Python environment and check that its version meets that range. The archive
-installer does not install Python dependencies. No source checkout is needed.
+  For a system installation of WeeWX, use your distribution's Requests
+  package and check that its version is in that range.
 
-## Install
+## Installation
 
-Replace `/path/to/weewx.conf` with your existing station configuration. Use
-`weectl` from the Python environment running WeeWX to install the archive:
+Install `prompush` from the [WeeWX packages catalog](https://github.com/weewx-packages/catalog/blob/main/packages/prompush.md).
+The catalog page lists the current release, its WeeWX and Python
+requirements, and the install, update and removal commands.
 
-```sh
-weectl extension install https://github.com/weewx-packages/weewx-prompush/releases/download/v1.1.0/weewx-prompush-1.1.0.tar.gz --config /path/to/weewx.conf
-```
+The installer adds `user.prompush.PromPush` to `restful_services` and writes
+a `[[PromPush]]` section with the placeholders `PUSH_GW_HOST`,
+`PUSH_GW_PORT`, `PROMETHEUS_JOB_NAME` and `PROMETHEUS_INSTANCE_NAME`.
+Replace them, then restart WeeWX.
 
-You can also download that URL and pass the local archive to the same command.
-Use elevated permissions only when your station files require them.
-
-## Configure the gateway
+## Configuration
 
 ```ini
 [StdRESTful]
@@ -46,24 +44,55 @@ Use elevated permissions only when your station files require them.
         instance = garden
 ```
 
-The installer registers `user.prompush.PromPush`. Restart WeeWX yourself and
-look for the job on the gateway after a LOOP packet. Configure Prometheus to
-scrape that gateway. Job and instance are URL path components; use values
-without slashes or spaces.
+After the next LOOP packet, the job appears on the gateway. Configure
+Prometheus to scrape the gateway. Depending on its configuration, Prometheus
+may relabel `job` and `instance`.
 
-## Units and limits
+| Option | Default | Meaning |
+|---|---|---|
+| `host` | required | Pushgateway host. |
+| `port` | required | Pushgateway port, usually `9091`. |
+| `job` | `weewx` | Job name in the push URL. |
+| `instance` | empty | Instance name in the push URL. Empty leaves it out. |
+| `stale` | `60` | Packets older than this many seconds are skipped. |
+| `max_backlog` | unlimited | Queue length before old packets are dropped. |
+| `timeout` | `10` | HTTP timeout in seconds. |
+| `log_success` | `True` | Log each uploaded packet. |
+| `log_failure` | `True` | Log failed uploads. |
+| `skip_post` | `False` | Do not send packets. |
 
-The worker posts to `http://HOST:PORT/metrics/job/JOB/instance/INSTANCE`.
-There are no TLS or authentication settings. Restrict access to the gateway
-according to your network setup. Requests use the worker's timeout and HTTP
-failures reach the WeeWX REST worker.
+The uploader posts to `http://<host>:<port>/metrics/job/<job>/instance/<instance>`.
+Each field of the packet with a value becomes one metric, including
+`dateTime` and `usUnits`. Zero is sent. Values keep the packet's unit system.
+Common weather observations are typed as `gauge`, all other fields are left
+untyped. The service always reads the `wx_binding` data binding.
 
-Values retain the incoming packet's unit system. The uploader sends non-null
-packet values, including metadata such as `usUnits`; zero remains a value.
-Known observations are annotated as gauges, other fields are untyped. Numeric
-LOOP data is expected. There is no archive replay or built-in Prometheus server.
-The service also resolves `wx_binding` at startup.
+## Limitations
 
-Copyright and authorship: Steve Ulrich <sulrich@botwerks.org>.
-[Apache License 2.0](LICENSE). The original source is
-[sulrich/weewx-prompush](https://github.com/sulrich/weewx-prompush).
+- A missing `host` or `port` stops WeeWX at startup with a `KeyError`.
+  Options other than those in the table, such as `enable` or
+  `post_interval`, stop it with a `TypeError`.
+- There are no TLS or authentication settings. Restrict access to the
+  gateway in your network.
+- `job` and `instance` are inserted into the URL path without escaping. Use
+  values without slashes or spaces.
+- `max_tries` and `retry_wait` are accepted but have no effect. A failed
+  post is logged and the packet is dropped.
+- The tests use a local HTTP receiver. They do not replace a check against a
+  real Pushgateway.
+
+## Development
+
+```sh
+python -m pytest -q tests
+```
+
+Run the tests in an environment with WeeWX, Requests and pytest.
+
+## License
+
+Written by Steve Ulrich <sulrich@botwerks.org>.
+
+Apache License, Version 2.0. See [LICENSE](LICENSE).
+
+Modified 2026-10-23 by weewx-packages.
