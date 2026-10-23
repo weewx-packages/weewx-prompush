@@ -1,4 +1,4 @@
-	[Unreleased]
+	[1.1.1] - 2026-10-23
 	retry failed posts max_tries times, retry_wait seconds apart
 	log a missing host or port and do not start the uploader
 	log and ignore unknown options, honour enable = false
