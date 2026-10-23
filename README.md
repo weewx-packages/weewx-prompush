@@ -1,57 +1,67 @@
-## weewx prometheus pushgateway extension
+# WeeWX observations for Prometheus Pushgateway
 
-this weewx extension enables you to send your weather data to a [prometheus](http://prometheus.io) [pushgateway](https://github.com/prometheus/pushgateway). additional information regarding prometheus and its use can be found on the associated web site.
+Send LOOP observations to a Prometheus Pushgateway using the text exposition
+format. Prometheus must scrape that gateway separately to retain time series.
 
-## requirements
+This is the weewx-packages continuation, release **1.1.0**.
+[Origin](ORIGIN.md) records the upstream revision; [repair notes](REPAIR_NOTES.md)
+describe the maintenance changes.
 
-this extension requires the use of the `requests` package.
+The catalog archive targets WeeWX `>=5.5.2,<5.7` and Python `>=3.10,<3.15`.
 
-```
+## Requirements
+
+You need a reachable Pushgateway and Requests in the same Python environment
+as WeeWX. For a WeeWX virtual environment:
+
+```sh
 python -m pip install -r requirements.txt
 ```
 
-## installation
+For system Python, use your distribution's Requests package instead.
 
-this extension can be easily installed using the weewx extensions installer.
+## Install
 
-1. download the extension from github:
-	```
-	wget https://github.com/weewx-packages/weewx-prompush/archive/refs/heads/master.tar.gz
-	```
+Use `weectl` from the Python environment running WeeWX. With stock WeeWX 5,
+install the published archive:
 
-2. install using the weewx extension utility
-	```
-	weectl extension install master.tar.gz
-	```
-
-3. update **weewx.conf** to appropriately tag weather data for submission into the prometheus pushgateway and subsequent scraping from prometheus.  note that **job** and **instance** names may be subject to relabeling depending on your prometheus environment.
-	```
-    [StdRESTful]
-      [[PromPush]]
-         job = PROMETHEUS_JOB_NAME
-         instance = PROMETHEUS_INSTANCE_NAME
-         host = PUSH_GW_HOST
-         port = PUSH_GW_PORT
-	```
-	
-`weectl extension install` will add a boilerplate `[[PromPush]]` section to your config.  You need to edit it.
-	
-
-4. restart weewx
-
-```
-sudo /etc/init.d/weewx stop
-sudo /etc/init.d/weewx start
+```sh
+weectl extension install https://github.com/weewx-packages/weewx-prompush/releases/download/v1.1.0/weewx-prompush-1.1.0.tar.gz --config /path/to/weewx.conf
 ```
 
-## administravia
-**author:** steve ulrich \<[sulrich@botwerks.org](mailto:sulrich@botwerks.org)\>  
-**license:** Apache License, Version 2.0. See LICENSE.  
-**source:** [https://github.com/sulrich/weewx-prompush](https://github.com/sulrich/weewx-prompush)  
+Replace `/path/to/weewx.conf` with your station configuration. You can also
+download that URL and pass the local archive to the same command. Use elevated
+permissions only when your station files require them.
 
-This continuation uses Python 3 and a maintained Requests 2.x release. Configure
-job and instance as URL path components without slashes or spaces. Missing
-measurements are omitted; zero remains a measurement. Failed uploads are
-reported to the WeeWX REST worker, and HTTP requests use its timeout.
+## Configure the gateway
 
-Modified 2026-10-22 by weewx-packages.
+```ini
+[StdRESTful]
+    [[PromPush]]
+        host = pushgateway.example.com
+        port = 9091
+        job = weewx
+        instance = garden
+```
+
+The installer registers `user.prompush.PromPush`. Restart WeeWX yourself and
+look for the job on the gateway after a LOOP packet. Configure Prometheus to
+scrape that gateway. Job and instance are URL path components; use values
+without slashes or spaces.
+
+## Units and limits
+
+The worker posts to `http://HOST:PORT/metrics/job/JOB/instance/INSTANCE`.
+There are no TLS or authentication settings. Restrict access to the gateway
+according to your network setup. Requests use the worker's timeout and HTTP
+failures reach the WeeWX REST worker.
+
+Values retain the incoming packet's unit system. The uploader sends non-null
+packet values, including metadata such as `usUnits`; zero remains a value.
+Known observations are annotated as gauges, other fields are untyped. Numeric
+LOOP data is expected. There is no archive replay or built-in Prometheus server.
+The service also resolves `wx_binding` at startup.
+
+Copyright and authorship: Steve Ulrich <sulrich@botwerks.org>.
+[Apache License 2.0](LICENSE). The original source is
+[sulrich/weewx-prompush](https://github.com/sulrich/weewx-prompush).
