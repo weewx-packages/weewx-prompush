@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # Modified 2026-10-22 by weewx-packages: compatibility and tracker repairs.
+# Modified 2026-10-23 by weewx-packages: retry failed posts, report missing
+# and unknown options instead of stopping WeeWX.
 
 """
 sample output from simulator
@@ -74,26 +76,40 @@ import weeutil.weeutil
 
 import requests
 
+import inspect
 import queue
 import sys
 import syslog
+import time
 
 class PromPush(weewx.restx.StdRESTful):
     """
 
     sends weewx weather records to a prometheus pushgateway using the
-    prometheus_client library
+    requests library
 
     """
 
     def __init__(self, engine, config_dict):
         super(PromPush, self).__init__(engine, config_dict)
-        try:
-            _prom_dict = weeutil.weeutil.accumulateLeaves(
-                config_dict['StdRESTful']['PromPush'], max_level=1)
-        except KeyError as e:
-            logerr("config error: missing parameter %s" % e)
+        # get_site_dict() returns None, and logs why, when the section is
+        # missing or has enable = false.
+        _prom_dict = weewx.restx.get_site_dict(config_dict, 'PromPush')
+        if _prom_dict is None:
             return
+        for option in ('host', 'port'):
+            if not _prom_dict.get(option):
+                logerr("data will not be posted: missing option %s" % option)
+                return
+
+        # PromPushThread takes the options as keyword arguments. An option it
+        # does not know would raise TypeError and stop WeeWX, so log it and
+        # leave it out.
+        _known = set(inspect.signature(PromPushThread.__init__).parameters)
+        _known -= {'self', 'queue', 'manager_dict'}
+        for option in sorted(set(_prom_dict) - _known):
+            logwarn("unknown option '%s' ignored" % option)
+            del _prom_dict[option]
 
         _manager_dict = weewx.manager.get_manager_dict(
             config_dict['DataBindings'], config_dict['Databases'], 'wx_binding')
@@ -164,16 +180,23 @@ class PromPushThread(weewx.restx.RESTThread):
         if self.instance:
             pushgw_url += "/instance/" + self.instance
 
-        try:
-            _res = requests.post(url=pushgw_url,
-                                 data=data,
-                                 headers={'Content-Type': 'text/plain; version=0.0.4'},
-                                 timeout=self.timeout)
-            _res.raise_for_status()
-            loginfo("pushgw post return code - %s" % _res.status_code)
-        except requests.RequestException as e:
-            logerr("pushgw post error: %s" % e)
-            raise weewx.restx.FailedPost(str(e))
+        _error = None
+        for _count in range(self.max_tries):
+            try:
+                if _count:
+                    time.sleep(self.retry_wait)
+                _res = requests.post(url=pushgw_url,
+                                     data=data,
+                                     headers={'Content-Type': 'text/plain; version=0.0.4'},
+                                     timeout=self.timeout)
+                _res.raise_for_status()
+                loginfo("pushgw post return code - %s" % _res.status_code)
+                return
+            except requests.RequestException as e:
+                logdbg("pushgw post attempt %d failed: %s" % (_count + 1, e))
+                _error = e
+        raise weewx.restx.FailedPost("Failed upload after %d tries: %s"
+                                     % (self.max_tries, _error))
 
 
 
@@ -211,6 +234,9 @@ def logdbg(msg):
 
 def loginfo(msg):
     logmsg(syslog.LOG_INFO, msg)
+
+def logwarn(msg):
+    logmsg(syslog.LOG_WARNING, msg)
 
 def logerr(msg):
     logmsg(syslog.LOG_ERR, msg)

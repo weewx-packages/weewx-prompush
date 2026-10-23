@@ -50,6 +50,7 @@ may relabel `job` and `instance`.
 
 | Option | Default | Meaning |
 |---|---|---|
+| `enable` | `True` | `false` turns the uploader off. |
 | `host` | required | Pushgateway host. |
 | `port` | required | Pushgateway port, usually `9091`. |
 | `job` | `weewx` | Job name in the push URL. |
@@ -57,9 +58,15 @@ may relabel `job` and `instance`.
 | `stale` | `60` | Packets older than this many seconds are skipped. |
 | `max_backlog` | unlimited | Queue length before old packets are dropped. |
 | `timeout` | `10` | HTTP timeout in seconds. |
+| `max_tries` | `3` | Attempts per packet. After the last failed attempt the packet is logged and dropped. |
+| `retry_wait` | `5` | Seconds between attempts. |
 | `log_success` | `True` | Log each uploaded packet. |
 | `log_failure` | `True` | Log failed uploads. |
 | `skip_post` | `False` | Do not send packets. |
+
+Without `host` or `port`, the uploader logs an error and does not start.
+WeeWX keeps running. Options not in this table, such as `post_interval`, are
+logged as unknown and ignored.
 
 The uploader posts to `http://<host>:<port>/metrics/job/<job>/instance/<instance>`.
 Each field of the packet with a value becomes one metric, including
@@ -69,15 +76,10 @@ untyped. The service always reads the `wx_binding` data binding.
 
 ## Limitations
 
-- A missing `host` or `port` stops WeeWX at startup with a `KeyError`.
-  Options other than those in the table, such as `enable` or
-  `post_interval`, stop it with a `TypeError`.
 - There are no TLS or authentication settings. Restrict access to the
   gateway in your network.
 - `job` and `instance` are inserted into the URL path without escaping. Use
   values without slashes or spaces.
-- `max_tries` and `retry_wait` are accepted but have no effect. A failed
-  post is logged and the packet is dropped.
 - The tests use a local HTTP receiver. They do not replace a check against a
   real Pushgateway.
 
