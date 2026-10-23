@@ -2,6 +2,7 @@
 	retry failed posts max_tries times, retry_wait seconds apart
 	log a missing host or port and do not start the uploader
 	log and ignore unknown options, honour enable = false
+	log through the logging module, so messages reach the WeeWX log
 
 	[1.0.0] - 2016-06-25
 	initial release for submission to weewx extensions list
