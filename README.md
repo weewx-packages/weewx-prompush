@@ -11,27 +11,29 @@ The catalog archive targets WeeWX `>=5.5.2,<5.7` and Python `>=3.10,<3.15`.
 
 ## Requirements
 
-You need a reachable Pushgateway and Requests in the same Python environment
-as WeeWX. For a WeeWX virtual environment:
+You need a reachable Pushgateway and Requests `>=2.32.5,<3` in the Python
+environment running WeeWX. Activate that WeeWX virtual environment before
+running these commands, so `python` and `weectl` use the same environment:
 
 ```sh
-python -m pip install -r requirements.txt
+python -m pip install 'requests>=2.32.5,<3'
 ```
 
-For system Python, use your distribution's Requests package instead.
+For a system installation, use your distribution's Requests package in WeeWX's
+Python environment and check that its version meets that range. The archive
+installer does not install Python dependencies. No source checkout is needed.
 
 ## Install
 
-Use `weectl` from the Python environment running WeeWX. With stock WeeWX 5,
-install the published archive:
+Replace `/path/to/weewx.conf` with your existing station configuration. Use
+`weectl` from the Python environment running WeeWX to install the archive:
 
 ```sh
 weectl extension install https://github.com/weewx-packages/weewx-prompush/releases/download/v1.1.0/weewx-prompush-1.1.0.tar.gz --config /path/to/weewx.conf
 ```
 
-Replace `/path/to/weewx.conf` with your station configuration. You can also
-download that URL and pass the local archive to the same command. Use elevated
-permissions only when your station files require them.
+You can also download that URL and pass the local archive to the same command.
+Use elevated permissions only when your station files require them.
 
 ## Configure the gateway
 
