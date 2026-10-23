@@ -7,7 +7,7 @@ setup for weewx prometheus pushgateway pusher
 """
 
 __title__ = 'PromPush'
-__version__ = '1.1.0'
+__version__ = '1.1.1'
 __author__ = 'steve ulrich <sulrich@botwerks.org>'
 __license__ = 'Apache License, Version 2.0'
 
